@@ -22,6 +22,8 @@ AGENT_API_KEY = os.getenv("AGENT_API_KEY")
 BHASHINI_ASR_KEY = os.getenv("BHASHINI_ASR_KEY")
 BHASHINI_TTS_KEY = os.getenv("BHASHINI_TTS_KEY")
 BHASHINI_USER_ID = os.getenv("BHASHINI_USER_ID")
+DO_MODEL_KEY = os.getenv("DO_MODEL_KEY")  # Your DigitalOcean Model Access Key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Optional, for Option B
 
 LANGUAGE_MAP = {
     "hi": "Hindi", "bn": "Bengali", "te": "Telugu", "ta": "Tamil",
@@ -107,7 +109,114 @@ async def bhashini_tts(text: str, language: str) -> str:
         audio_b64 = result["pipelineResponse"][0]["audio"][0]["audioContent"]
         return f"data:audio/wav;base64,{audio_b64}"
 
+# --- New Image Analysis Function (Option A: DigitalOcean Native) ---
+async def analyze_image_digitalocean(image_bytes: bytes, user_question: str, language: str) -> str:
+    """Analyzes an image using DigitalOcean's native vision model (Ministral 3 14B)."""
+    if not DO_MODEL_KEY:
+        raise HTTPException(status_code=500, detail="DigitalOcean Model Access Key not configured")
+    
+    # Encode image to base64
+    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    data_uri = f"data:image/jpeg;base64,{img_base64}"
+    
+    vision_prompt = f"You are Krishi Sahayak, an expert agricultural advisor. Analyze this crop photo carefully and answer the farmer's question. Always respond in {LANGUAGE_MAP.get(language, 'English')}. Focus on diagnosing diseases, pests, nutrient deficiencies, or growth issues visible in the image. Give organic solutions first. The farmer says: '{user_question}'."
+    
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.digitalocean.com/v2/gen-ai/inference/chat/completions",
+            headers={
+                "Authorization": f"Bearer {DO_MODEL_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "mistral-ministral-3-14b",  # Vision-capable model
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": vision_prompt},
+                            {"type": "image_url", "image_url": {"url": data_uri}}
+                        ]
+                    }
+                ],
+                "temperature": 0.7,
+                "max_tokens": 500
+            },
+            timeout=90.0
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Vision API error: {resp.text}")
+        data = resp.json()
+        return data["choices"][0]["message"]["content"]
+
+# --- Alternative: Option B (OpenAI GPT‑4o‑mini) ---
+async def analyze_image_openai(image_bytes: bytes, user_question: str, language: str) -> str:
+    """Analyzes an image using OpenAI's GPT‑4o‑mini (requires your own OpenAI API key)."""
+    if not OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured")
+    
+    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    data_uri = f"data:image/jpeg;base64,{img_base64}"
+    
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": f"You are Krishi Sahayak, an expert agricultural advisor. Analyze crop photos and answer questions in {LANGUAGE_MAP.get(language, 'English')}. Give organic solutions first."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_question},
+                            {"type": "image_url", "image_url": {"url": data_uri}}
+                        ]
+                    }
+                ],
+                "temperature": 0.7,
+                "max_tokens": 500
+            },
+            timeout=90.0
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"OpenAI API error: {resp.text}")
+        data = resp.json()
+        return data["choices"][0]["message"]["content"]
+
 # ── Endpoints ──
+# --- New /chat/image Endpoint ---
+@app.post("/chat/image")
+async def chat_image(
+    prompt: str = Form(...),
+    language: str = Form("hi"),
+    image: UploadFile = File(...)
+):
+    """Receives an image and a text prompt, then returns a vision-based diagnosis."""
+    # Read the uploaded image
+    image_bytes = await image.read()
+    
+    # Step 1: Get vision-based diagnosis
+    try:
+        # Default to Option A (DigitalOcean native vision model)
+        vision_response = await analyze_image_digitalocean(image_bytes, prompt, language)
+    except Exception as e:
+        # Fallback: send text-only to your main agent if vision fails
+        fallback_prompt = f"[Farmer uploaded a crop image but vision analysis failed. Their question: {prompt}] Please respond in {LANGUAGE_MAP.get(language, 'English')}."
+        vision_response = await call_agent(fallback_prompt)
+    
+    return {
+        "response": vision_response,
+        "language": language,
+        "mode": "vision"
+    }
+
 @app.post("/chat/voice")
 async def chat_voice(audio: UploadFile = File(...), language: str = Form("hi")):
     audio_bytes = await audio.read()
