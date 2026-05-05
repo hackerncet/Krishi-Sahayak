@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krishi Sahayak - AI Farming Advisor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: #2e7d32;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .language-bar {
+            background: #f1f1f1;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+        }
+        .language-bar select {
+            width: 90%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+            background: white;
+        }
+        .chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #fafaf5;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background: #dcf8c6;
+            border-bottom-right-radius: 4px;
+        }
+        .bot-message {
+            align-self: flex-start;
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-bottom-left-radius: 4px;
+        }
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: #f1f1f1;
+            gap: 10px;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 25px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+            outline: none;
+        }
+        .input-area button {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            font-size: 1.4em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .typing-indicator {
+            align-self: flex-start;
+            background: #ffffff;
+            border: 1px solid #ddd;
+            padding: 12px 16px;
+            border-radius: 18px;
+            display: none;
+        }
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #888;
+            margin: 0 2px;
+            animation: blink 1.4s infinite both;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0% { opacity: 0.1; }
+            20% { opacity: 1; }
+            100% { opacity: 0.1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">🌾 Krishi Sahayak</div>
+        <div class="language-bar">
+            <select id="language-select">
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="gu">ગુજરાતી (Gujarati)</option>
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                <option value="ml">മലയാളം (Malayalam)</option>
+                <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                <option value="or">ଓଡ଼ିଆ (Odia)</option>
+                <option value="as">অসমীয়া (Assamese)</option>
+                <option value="ur">اردو (Urdu)</option>
+                <option value="sa">संस्कृत (Sanskrit)</option>
+                <option value="sd">سنڌي (Sindhi)</option>
+                <option value="ne">नेपाली (Nepali)</option>
+                <option value="ks">کٲشُر (Kashmiri)</option>
+                <option value="doi">डोगरी (Dogri)</option>
+                <option value="mni">মৈতৈলোন (Manipuri)</option>
+                <option value="sat">ᱥᱟᱱᱛᱟᱲᱤ (Santali)</option>
+                <option value="brx">बर'/बड़ो (Bodo)</option>
+                <option value="mai">मैथिली (Maithili)</option>
+                <option value="gom">कोंकणी (Konkani)</option>
+            </select>
+        </div>
+        <div class="chat-window" id="chat-window">
+            <div class="message bot-message">
+                👋 नमस्ते! मैं आपका कृषि सलाहकार हूँ। कृपया अपनी भाषा चुनें और प्रश्न पूछें।
+            </div>
+        </div>
+        <div class="typing-indicator" id="typing-indicator">
+            <span></span><span></span><span></span>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="अपना प्रश्न लिखें..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        // UPDATE THIS with your DigitalOcean app URL
+        const BACKEND_URL = 'https://oyster-app-jb6cq.ondigitalocean.app';
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const language = document.getElementById('language-select').value;
+            appendMessage(message, 'user');
+            input.value = '';
+
+            // Show typing indicator
+            const typingDiv = document.getElementById('typing-indicator');
+            typingDiv.style.display = 'block';
+            scrollToBottom();
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/chat/text`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: message, language: language })
+                });
+                const data = await response.json();
+                appendMessage(data.response, 'bot');
+            } catch (error) {
+                appendMessage('⚠️ संपर्क में त्रुटि। कृपया पुनः प्रयास करें।', 'bot');
+            } finally {
+                typingDiv.style.display = 'none';
+                scrollToBottom();
+            }
+        }
+
+        function appendMessage(text, sender) {
+            const chatWindow = document.getElementById('chat-window');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            chatWindow.appendChild(messageDiv);
+        }
+
+        function scrollToBottom() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    </script>
+</body>
+</html>
