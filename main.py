@@ -39,9 +39,22 @@ class ChatRequest(BaseModel):
     language: str = "hi"
 
 # ── Call your Agent Platform agent ──
-async def call_agent(user_prompt: str) -> str:
+async def call_agent(user_prompt: str, language: str = "hi") -> str:
     if not AGENT_ENDPOINT or not AGENT_API_KEY:
         raise HTTPException(status_code=500, detail="Agent not configured")
+    
+    lang_name = LANGUAGE_MAP.get(language, "Hindi")
+    
+    # Build a clear instruction for the agent
+    instruction = (
+        f"You must respond in {lang_name} only. "
+        "Be direct, brief, and actionable. "
+        "If the user provides a photo, analyse it and give a specific diagnosis. "
+        "Do not ask unnecessary questions. "
+        "Keep the answer under 3 short paragraphs."
+    )
+    full_prompt = f"{instruction}\n\nFarmer's question: {user_prompt}"
+
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             AGENT_ENDPOINT,
@@ -49,8 +62,8 @@ async def call_agent(user_prompt: str) -> str:
                 "Authorization": f"Bearer {AGENT_API_KEY}",
                 "Content-Type": "application/json"
             },
-            json={"messages": [{"role": "user", "content": user_prompt}]},
-            timeout=30.0
+            json={"messages": [{"role": "user", "content": full_prompt}]},
+            timeout=60.0
         )
         if resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
@@ -199,17 +212,51 @@ async def chat_image(
     image: UploadFile = File(...)
 ):
     """Receives an image and a text prompt, then returns a vision-based diagnosis."""
-    # Read the uploaded image
     image_bytes = await image.read()
+    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    data_uri = f"data:image/jpeg;base64,{img_base64}"
+    lang_name = LANGUAGE_MAP.get(language, "Hindi")
     
-    # Step 1: Get vision-based diagnosis
+    instruction = (
+        f"Analyse the crop photo carefully. "
+        f"Give a specific diagnosis and treatment in {lang_name}. "
+        "Be brief, direct, and avoid unnecessary questions. "
+        "If you cannot see clearly, state that, but still try to help."
+    )
+    full_text = f"{instruction}\n\nFarmer's additional message: {prompt}"
+    
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": full_text},
+                {"type": "image_url", "image_url": {"url": data_uri}}
+            ]
+        }
+    ]
+    
+    if not AGENT_ENDPOINT or not AGENT_API_KEY:
+        raise HTTPException(status_code=500, detail="Agent not configured")
+
     try:
-        # Default to Option A (DigitalOcean native vision model)
-        vision_response = await analyze_image_digitalocean(image_bytes, prompt, language)
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                AGENT_ENDPOINT,
+                headers={
+                    "Authorization": f"Bearer {AGENT_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"messages": messages},
+                timeout=60.0
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
+            data = resp.json()
+            vision_response = data["choices"][0]["message"]["content"]
     except Exception as e:
         # Fallback: send text-only to your main agent if vision fails
-        fallback_prompt = f"[Farmer uploaded a crop image but vision analysis failed. Their question: {prompt}] Please respond in {LANGUAGE_MAP.get(language, 'English')}."
-        vision_response = await call_agent(fallback_prompt)
+        fallback_prompt = f"[Farmer uploaded a crop image but vision analysis failed. Their question: {prompt}]"
+        vision_response = await call_agent(fallback_prompt, language)
     
     return {
         "response": vision_response,
@@ -224,7 +271,7 @@ async def chat_voice(audio: UploadFile = File(...), language: str = Form("hi")):
     transcript = await bhashini_stt(audio_b64, language)
     if not transcript.strip():
         raise HTTPException(status_code=400, detail="Could not transcribe audio.")
-    ai_text = await call_agent(transcript)
+    ai_text = await call_agent(transcript, language)
     audio_url = await bhashini_tts(ai_text, language)
     return {
         "transcript": transcript,
@@ -235,7 +282,7 @@ async def chat_voice(audio: UploadFile = File(...), language: str = Form("hi")):
 
 @app.post("/chat/text")
 async def chat_text(request: ChatRequest):
-    ai_text = await call_agent(request.prompt)
+    ai_text = await call_agent(request.prompt, request.language)
     return {"response": ai_text, "language": request.language}
 
 @app.get("/")
