@@ -2,72 +2,74 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Krishi Sahayak – AI Farming Advisor</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: #1e1e2e;
-      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f7f7f8;
+      color: #1e1e1e;
+      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
     }
     .app {
       width: 100%;
-      max-width: 720px;
+      max-width: 768px;
       height: 100vh;
       display: flex;
       flex-direction: column;
-      background: #181825;
-      border-radius: 0;
-      box-shadow: 0 0 30px rgba(0,0,0,0.7);
-      overflow: hidden;
+      background: white;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      position: relative;
     }
+    /* Header */
     .header {
-      padding: 16px 20px;
-      background: #11111b;
-      border-bottom: 1px solid #313244;
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-title {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    .header h1 {
+    .header-title h1 {
       font-size: 1.2rem;
       font-weight: 600;
-      color: #cdd6f4;
+      color: #0d6b1c;
     }
-    .header span {
-      background: #a6e3a1;
-      color: #11111b;
-      padding: 2px 8px;
+    .header .badge {
+      background: #0d6b1c;
+      color: white;
+      padding: 2px 10px;
       border-radius: 12px;
       font-size: 0.7rem;
       font-weight: 700;
     }
-    .language-row {
+    /* Language bar */
+    .lang-bar {
       display: flex;
       align-items: center;
       padding: 8px 20px;
-      background: #1e1e2e;
-      border-bottom: 1px solid #313244;
+      background: #fafafa;
+      border-bottom: 1px solid #eee;
     }
-    .language-row select {
+    .lang-bar select {
       flex: 1;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: #313244;
-      color: #cdd6f4;
-      border: 1px solid #45475a;
-      font-size: 0.9rem;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 0.95rem;
+      background: white;
       outline: none;
     }
+    /* Chat area */
     .chat {
       flex: 1;
       overflow-y: auto;
@@ -75,13 +77,15 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      scroll-behavior: smooth;
     }
     .message {
-      max-width: 85%;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      max-width: 80%;
+      animation: fadeIn 0.3s ease;
     }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(5px); } to { opacity:1; transform: translateY(0); } }
     .user-msg {
       align-self: flex-end;
       align-items: flex-end;
@@ -90,301 +94,368 @@
       align-self: flex-start;
       align-items: flex-start;
     }
-    .message .text {
+    .message .bubble {
       padding: 12px 16px;
       border-radius: 18px;
-      line-height: 1.55;
+      line-height: 1.5;
       word-wrap: break-word;
-      white-space: pre-wrap;
       font-size: 0.95rem;
     }
-    .user-msg .text {
-      background: #89b4fa;
-      color: #1e1e2e;
+    .user-msg .bubble {
+      background: #dcf8c6;
       border-bottom-right-radius: 4px;
     }
-    .bot-msg .text {
-      background: #313244;
-      color: #cdd6f4;
+    .bot-msg .bubble {
+      background: #f1f1f1;
       border-bottom-left-radius: 4px;
     }
-    .message .image-preview {
+    /* Image inside message */
+    .msg-image {
       max-width: 200px;
       border-radius: 12px;
-      margin-bottom: 4px;
-      border: 1px solid #45475a;
+      margin-bottom: 6px;
+      border: 1px solid #ddd;
     }
+    /* Typing indicator */
     .typing {
       align-self: flex-start;
-      display: flex;
-      gap: 6px;
+      display: none;
       padding: 12px 16px;
+      background: #f1f1f1;
+      border-radius: 18px;
     }
     .typing .dot {
+      display: inline-block;
       width: 8px;
       height: 8px;
-      background: #585b70;
+      background: #888;
       border-radius: 50%;
-      animation: bounce 1.4s infinite ease-in-out both;
+      margin: 0 3px;
+      animation: bounce 1.4s infinite both;
     }
-    .typing .dot:nth-child(1) { animation-delay: -0.16s; }
-    .typing .dot:nth-child(2) { animation-delay: -0.08s; }
-    .typing .dot:nth-child(3) { animation-delay: 0s; }
+    .typing .dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing .dot:nth-child(3) { animation-delay: 0.4s; }
     @keyframes bounce {
       0%, 80%, 100% { transform: scale(0); }
       40% { transform: scale(1); }
     }
+    /* Fertilizer suggestion box */
+    .suggestion-box {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+    /* Input area */
     .input-area {
-      padding: 16px 20px;
-      background: #11111b;
-      border-top: 1px solid #313244;
       display: flex;
       align-items: center;
       gap: 10px;
+      padding: 12px 20px;
+      background: white;
+      border-top: 1px solid #e5e5e5;
     }
     .input-area input[type="text"] {
       flex: 1;
       padding: 12px 16px;
       border-radius: 24px;
-      background: #313244;
-      border: 1px solid #45475a;
-      color: #cdd6f4;
+      border: 1px solid #d1d5db;
       font-size: 1rem;
       outline: none;
-    }
-    .input-area input[type="text"]::placeholder {
-      color: #6c7086;
+      background: #fafafa;
     }
     .icon-btn {
-      background: #313244;
+      background: none;
       border: none;
-      color: #cdd6f4;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      font-size: 1.2rem;
+      border-radius: 50%;
       transition: background 0.2s;
+      color: #555;
     }
-    .icon-btn:hover {
-      background: #45475a;
+    .icon-btn:hover { background: #f0f0f0; }
+    .send-btn {
+      background: #0d6b1c;
+      color: white;
+      width: 44px;
+      height: 44px;
     }
-    .icon-btn.send {
-      background: #89b4fa;
-      color: #1e1e2e;
+    .send-btn:hover { background: #0a5a18; }
+    /* Hidden file input */
+    #image-input { display: none; }
+    /* Image preview thumbnail (floating near input) */
+    .image-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f0f0f0;
+      padding: 6px 10px;
+      border-radius: 20px;
+      margin-right: 5px;
     }
-    .icon-btn.send:hover {
-      background: #74c7ec;
+    .image-preview img {
+      height: 36px;
+      width: 36px;
+      object-fit: cover;
+      border-radius: 8px;
     }
-    /* Hide file input */
-    #image-input {
-      display: none;
+    .image-preview .remove-preview {
+      cursor: pointer;
+      font-size: 1rem;
+      color: #999;
+      margin-left: 4px;
     }
+    /* Empty state */
     .empty-state {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      color: #585b70;
-      font-size: 0.95rem;
-      gap: 10px;
+      height: 100%;
+      color: #9ca3af;
+      text-align: center;
+      gap: 8px;
     }
-    .empty-state p { margin: 0; }
-    .error-message {
-      background: #f38ba8;
-      color: #1e1e2e;
-      padding: 8px 16px;
-      border-radius: 12px;
-      font-weight: 500;
+    .empty-state p { margin: 0; font-size: 0.95rem; }
+    @media (max-width: 480px) {
+      .header-title h1 { font-size: 1rem; }
+      .message { max-width: 85%; }
     }
   </style>
 </head>
 <body>
 <div class="app">
+  <!-- Header -->
   <div class="header">
-    <h1>🌾 Krishi Sahayak</h1>
-    <span>AI</span>
-  </div>
-  <div class="language-row">
-    <select id="language-select">
-      <option value="hi">हिन्दी (Hindi)</option>
-      <option value="bn">বাংলা (Bengali)</option>
-      <option value="te">తెలుగు (Telugu)</option>
-      <option value="ta">தமிழ் (Tamil)</option>
-      <option value="mr">मराठी (Marathi)</option>
-      <option value="gu">ગુજરાતી (Gujarati)</option>
-      <option value="kn">ಕನ್ನಡ (Kannada)</option>
-      <option value="ml">മലയാളം (Malayalam)</option>
-      <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
-      <option value="or">ଓଡ଼ିଆ (Odia)</option>
-      <option value="as">অসমীয়া (Assamese)</option>
-      <option value="ur">اردو (Urdu)</option>
-    </select>
-  </div>
-  <div class="chat" id="chat-container">
-    <!-- Messages dynamically inserted -->
-    <div class="empty-state" id="empty-state">
-      <p>🌱 Your personal farming assistant</p>
-      <p style="font-size:0.8rem;">Select language & ask anything about crops, pests, soil, or weather.</p>
+    <div class="header-title">
+      <span>🌾</span>
+      <h1>Krishi Sahayak</h1>
+      <span class="badge">AI</span>
     </div>
   </div>
-  <div class="typing" id="typing-indicator" style="display: none;">
+
+  <!-- Language selector -->
+  <div class="lang-bar">
+    <select id="language-select">
+      <option value="hi">हिन्दी</option>
+      <option value="bn">বাংলা</option>
+      <option value="te" selected>తెలుగు</option>
+      <option value="ta">தமிழ்</option>
+      <option value="mr">मराठी</option>
+      <option value="gu">ગુજરાતી</option>
+      <option value="kn">ಕನ್ನಡ</option>
+      <option value="ml">മലയാളം</option>
+      <option value="pa">ਪੰਜਾਬੀ</option>
+      <option value="or">ଓଡ଼ିଆ</option>
+      <option value="as">অসমীয়া</option>
+      <option value="ur">اردو</option>
+      <option value="sat">ᱥᱟᱱᱛᱟᱲ</option>
+      <option value="mai">मैथिली</option>
+      <option value="gom">कोंकणी</option>
+    </select>
+  </div>
+
+  <!-- Chat area -->
+  <div class="chat" id="chat-container">
+    <div class="empty-state" id="empty-state">
+      <p>🌱 Your personal farming assistant</p>
+      <p>Select language, ask a question (or upload a photo)</p>
+    </div>
+  </div>
+
+  <!-- Typing indicator -->
+  <div class="typing" id="typing-indicator">
     <div class="dot"></div>
     <div class="dot"></div>
     <div class="dot"></div>
   </div>
-  <div class="input-area">
-    <label for="image-input" class="icon-btn" title="Upload crop photo">🖼️</label>
+
+  <!-- Input area -->
+  <div class="input-area" id="input-area">
+    <label for="image-input" class="icon-btn" title="Attach photo">🖼️</label>
     <input type="file" id="image-input" accept="image/*">
-    <input type="text" id="user-input" placeholder="Ask a farming question..." autofocus>
-    <button class="icon-btn send" id="send-btn">➤</button>
+    <div id="preview-container"></div>
+    <input type="text" id="user-input" placeholder="Ask a farming question..." autocomplete="off">
+    <button class="icon-btn send-btn" id="send-btn">➤</button>
   </div>
 </div>
 
 <script>
-  const BACKEND_URL = 'https://oyster-app-jb6cq.ondigitalocean.app'; // Your DigitalOcean app
+  const BACKEND_URL = 'https://oyster-app-jb6cq.ondigitalocean.app';
   const chatContainer = document.getElementById('chat-container');
   const userInput = document.getElementById('user-input');
   const sendBtn = document.getElementById('send-btn');
   const imageInput = document.getElementById('image-input');
+  const previewContainer = document.getElementById('preview-container');
   const languageSelect = document.getElementById('language-select');
   const typingIndicator = document.getElementById('typing-indicator');
-  let selectedImage = null; // Store selected image file
+  const emptyState = document.getElementById('empty-state');
 
-  // Hide empty state when messages exist
-  function toggleEmptyState() {
-    const emptyState = document.getElementById('empty-state');
-    if (chatContainer.children.length > 1) { // more than empty-state
+  let selectedImage = null;   // File object
+  let imagePreviewUrl = null; // URL for display
+
+  // Remove empty state when messages exist
+  function checkEmptyState() {
+    if (chatContainer.children.length > 1) {
       if (emptyState) emptyState.style.display = 'none';
     }
   }
 
-  // Append a message to chat
-  function appendMessage(text, role, imageUrl = null) {
-    toggleEmptyState();
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `message ${role}-msg`;
-
-    if (imageUrl) {
-      const img = document.createElement('img');
-      img.src = imageUrl;
-      img.className = 'image-preview';
-      img.alt = 'Uploaded crop photo';
-      msgDiv.appendChild(img);
-    }
-
-    const textDiv = document.createElement('div');
-    textDiv.className = 'text';
-    textDiv.textContent = text;
-    msgDiv.appendChild(textDiv);
-
-    chatContainer.appendChild(msgDiv);
-    scrollToBottom();
-  }
-
-  // Show typing indicator
-  function showTyping() {
-    typingIndicator.style.display = 'flex';
-    scrollToBottom();
-  }
-
-  function hideTyping() {
-    typingIndicator.style.display = 'none';
-  }
-
+  // Scroll to bottom
   function scrollToBottom() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
-  // Convert image file to base64 (for sending as JSON)
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+  // Convert selected file to preview thumbnail
+  imageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    selectedImage = file;
+    // Show preview thumbnail
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    imagePreviewUrl = URL.createObjectURL(file);
+    previewContainer.innerHTML = `
+      <div class="image-preview">
+        <img src="${imagePreviewUrl}" alt="Preview">
+        <span>Photo ready</span>
+        <span class="remove-preview" id="remove-preview">✕</span>
+      </div>`;
+    document.getElementById('remove-preview').addEventListener('click', clearImageSelection);
+  });
+
+  function clearImageSelection() {
+    selectedImage = null;
+    imagePreviewUrl = null;
+    imageInput.value = '';
+    previewContainer.innerHTML = '';
   }
 
-  // Send message (text + optional image)
+  // Simple Markdown to HTML converter
+  function formatBotResponse(text) {
+    // Bold: **text**
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Bullet points: lines starting with * or -
+    text = text.replace(/^(\*|-)\s+(.*)/gm, '<li>$2</li>');
+    // Wrap consecutive <li> in <ul>
+    text = text.replace(/((?:<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
+    // Double line breaks to paragraphs
+    text = text.replace(/\n\n/g, '</p><p>');
+    text = '<p>' + text + '</p>';
+    // Remove empty <p></p>
+    text = text.replace(/<p>\s*<\/p>/g, '');
+    return text;
+  }
+
+  // Auto-detect and wrap fertilizer/treatment suggestions in a box
+  function wrapSuggestionBoxes(html) {
+    // If the text contains typical fertilizer keywords, wrap it
+    if (/(fertilizer|kg|NPK|urea|compost|manure|potash|spray|neem oil)/i.test(html)) {
+      // We'll wrap the entire bot message in a suggestion box if it seems like a direct recommendation
+      // But better to just wrap parts that look like a list of fertilizers.
+      // For simplicity, we'll wrap any <ul> that follows a heading or sentence with those keywords.
+      // Actually, we'll just add a special class to the bubble if the message contains fertilizer keywords.
+      return html; // We'll instead apply a class later from the JS
+    }
+    return html;
+  }
+
+  // Append message to chat
+  function appendMessage(text, role, imageUrl = null) {
+    checkEmptyState();
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${role}-msg`;
+
+    // Image (user message)
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.className = 'msg-image';
+      msgDiv.appendChild(img);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (role === 'bot') {
+      // Format bot response
+      const formatted = formatBotResponse(text);
+      bubble.innerHTML = formatted;
+      // Check if fertilizer suggestion keywords present -> add box style
+      if (/(Fertilizer|NPK|kg|urea|spray|organic|pesticide)/i.test(text)) {
+        bubble.classList.add('suggestion-box');
+      }
+    } else {
+      bubble.textContent = text;
+    }
+
+    msgDiv.appendChild(bubble);
+    chatContainer.appendChild(msgDiv);
+    scrollToBottom();
+  }
+
+  // Show/hide typing
+  function showTyping() { typingIndicator.style.display = 'flex'; scrollToBottom(); }
+  function hideTyping() { typingIndicator.style.display = 'none'; }
+
+  // Send message
   async function sendMessage() {
     const messageText = userInput.value.trim();
     if (!messageText && !selectedImage) return;
 
     const language = languageSelect.value;
-
-    // Show user message in chat
-    if (selectedImage) {
-      const imageUrl = URL.createObjectURL(selectedImage);
-      appendMessage(messageText || ' ', 'user', imageUrl);
-    } else {
-      appendMessage(messageText, 'user');
-    }
+    // Display user message immediately
+    appendMessage(messageText || ' ', 'user', imagePreviewUrl);
 
     userInput.value = '';
+    // Clear image selection
+    const currentImage = selectedImage;
+    const currentPreviewUrl = imagePreviewUrl;
+    clearImageSelection();
+
     showTyping();
 
     try {
       let response;
-      
-      // If image is attached, we send it as multipart to a dedicated endpoint (to be added)
-      if (selectedImage) {
+      if (currentImage) {
         const formData = new FormData();
-        formData.append('prompt', messageText);
+        formData.append('prompt', messageText || 'What is wrong with this crop?');
         formData.append('language', language);
-        formData.append('image', selectedImage);
-
-        // This requires a new backend endpoint: /chat/image
-        response = await fetch(`${BACKEND_URL}/chat/image`, {
-          method: 'POST',
-          body: formData
-        });
+        formData.append('image', currentImage);
+        response = await fetch(`${BACKEND_URL}/chat/image`, { method: 'POST', body: formData });
       } else {
-        // Normal text chat
         response = await fetch(`${BACKEND_URL}/chat/text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: messageText, language: language })
+          body: JSON.stringify({ prompt: messageText, language })
         });
       }
-
       const data = await response.json();
       hideTyping();
-      
       if (data.response) {
         appendMessage(data.response, 'bot');
       } else {
-        appendMessage('⚠️ Received empty response. Please try again.', 'bot');
+        appendMessage('⚠️ No response received. Try again.', 'bot');
       }
-    } catch (error) {
+    } catch (err) {
       hideTyping();
-      appendMessage('⚠️ Connection error. Please check your internet and try again.', 'bot');
-    } finally {
-      // Clear selected image
-      selectedImage = null;
-      imageInput.value = '';
+      appendMessage('⚠️ Connection error. Check your internet.', 'bot');
     }
   }
 
   // Event listeners
   sendBtn.addEventListener('click', sendMessage);
   userInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-  });
-
-  imageInput.addEventListener('change', (e) => {
-    selectedImage = e.target.files[0];
-    if (selectedImage) {
-      // Optional: show a small preview in input area? Not needed, preview appears in chat
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   });
-
-  // Click on the image button opens file dialog via label
-  // Already wired.
 </script>
 </body>
 </html>
