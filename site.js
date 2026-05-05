@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const { pathname, search, hash } = window.location;
+  if (pathname.endsWith('.html')) {
+    const cleanPath = pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '/');
+    window.history.replaceState(null, '', `${cleanPath}${search}${hash}`);
+  }
+
   const nav = document.querySelector('.navbar');
   const toggle = document.querySelector('.nav-toggle');
 
