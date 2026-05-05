@@ -74,6 +74,20 @@
     gap: 2rem;
     align-items: center;
   }
+
+  .nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--white);
+    color: var(--secondary);
+    cursor: pointer;
+    font-size: 1.25rem;
+  }
   
   .nav-links a {
     color: var(--text-main);
@@ -592,12 +606,25 @@
         gap: 0.9rem;
       }
 
+        .nav-toggle {
+          display: inline-flex;
+          position: absolute;
+          right: 5%;
+          top: 1rem;
+        }
+
       .nav-links {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
+          display: none;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 0.9rem;
         width: 100%;
+          padding-top: 0.5rem;
       }
+
+        .navbar.is-open .nav-links {
+          display: flex;
+        }
 
       .nav-links a {
         padding: 0.45rem 0;
