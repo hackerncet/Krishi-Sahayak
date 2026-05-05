@@ -30,6 +30,10 @@
     line-height: 1.6;
     overflow-x: hidden;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
   
   a {
     text-decoration: none;
@@ -582,7 +586,26 @@
   @media (max-width: 768px) {
     /* Home Page Mobile */
     .hero h1 { font-size: 2.5rem; }
-    .nav-links { display: none; /* simple hidden links on mobile for simplicity */ }
+      .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.9rem;
+      }
+
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        width: 100%;
+      }
+
+      .nav-links a {
+        padding: 0.45rem 0;
+      }
+
+      .btn-launch {
+        padding: 0.55rem 1rem;
+      }
     .steps-container { flex-direction: column; }
     
     /* Chat Mobile */
@@ -734,5 +757,19 @@
   .content-section {
     padding: 20px;
     margin: 20px;
+  }
+
+  .page-header {
+    padding: 3rem 20px;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+  }
+
+  .content-section,
+  .contact-form,
+  .contact-info {
+    padding: 24px;
   }
 }
