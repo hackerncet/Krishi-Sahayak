@@ -53,11 +53,15 @@
     <div class="dot"></div>
   </div>
   <div class="input-area" id="input-area">
-    <label for="image-input" class="icon-btn" title="Attach photo">🖼️</label>
-    <input type="file" id="image-input" accept="image/*">
-    <div id="preview-container"></div>
-    <input type="text" id="user-input" placeholder="Ask a farming question..." autocomplete="off">
-    <button class="icon-btn send-btn" id="send-btn">➤</button>
+    <div class="composer-shell">
+      <div class="composer-preview" id="preview-container"></div>
+      <div class="composer-row">
+        <label for="image-input" class="icon-btn attach-btn" title="Attach photo" aria-label="Attach photo">🖼️</label>
+        <input type="file" id="image-input" accept="image/*">
+        <input type="text" id="user-input" placeholder="Ask a farming question..." autocomplete="off">
+        <button class="icon-btn send-btn" id="send-btn" type="button">➤</button>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -71,7 +75,31 @@
   const previewContainer = document.getElementById('preview-container');
   const emptyState = document.getElementById('empty-state');
   let uploadedImage = null;
+  let previewObjectUrl = null;
   function hideEmptyState() { if (emptyState) emptyState.style.display = 'none'; }
+  function clearImagePreview() {
+    uploadedImage = null;
+    imageInput.value = '';
+    previewContainer.innerHTML = '';
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
+  }
+  function renderImagePreview(file) {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+    }
+    previewObjectUrl = URL.createObjectURL(file);
+    previewContainer.innerHTML = `
+      <div class="image-preview">
+        <img src="${previewObjectUrl}" alt="Selected crop photo preview">
+        <span class="image-preview-name">${file.name}</span>
+        <button type="button" class="remove-preview" aria-label="Remove selected image">×</button>
+      </div>
+    `;
+    previewContainer.querySelector('.remove-preview').addEventListener('click', clearImagePreview);
+  }
   function escapeHTML(value) {
     return String(value)
       .replace(/&/g, '&amp;')
@@ -180,11 +208,21 @@
       hideTyping();
       if (data.response) appendMessage(data.response, 'bot');
       else appendMessage('⚠️ No response received. Try again.', 'bot');
+      clearImagePreview();
     } catch (err) {
       hideTyping();
       appendMessage('⚠️ Connection error. Check your internet.', 'bot');
     }
   }
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files && imageInput.files[0];
+    if (!file) {
+      clearImagePreview();
+      return;
+    }
+    uploadedImage = file;
+    renderImagePreview(file);
+  });
   sendBtn.addEventListener('click', sendMessage);
   userInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
