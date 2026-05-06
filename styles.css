@@ -652,6 +652,17 @@
     color: var(--secondary);
     flex: 0 0 auto;
   }
+
+  .attach-btn[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .input-area input[type="text"]:disabled {
+    color: #6b7280;
+    cursor: not-allowed;
+  }
   
   .icon-btn:hover {
     background: #f0f0f0;
@@ -666,6 +677,16 @@
   .send-btn:hover {
     background: var(--primary-dark);
     color: var(--white);
+  }
+
+  .send-btn.is-running {
+    background: #ef4444;
+    color: var(--white);
+    font-size: 1.05rem;
+  }
+
+  .send-btn.is-running:hover {
+    background: #dc2626;
   }
   
   /* File Input & Preview */

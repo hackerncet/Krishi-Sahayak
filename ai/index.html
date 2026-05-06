@@ -76,7 +76,23 @@
   const emptyState = document.getElementById('empty-state');
   let uploadedImage = null;
   let previewObjectUrl = null;
+  let isSending = false;
+  let activeRequest = null;
+  const SEND_ICON = '➤';
+  const STOP_ICON = '■';
   function hideEmptyState() { if (emptyState) emptyState.style.display = 'none'; }
+  function setComposerBusy(busy) {
+    isSending = busy;
+    sendBtn.textContent = busy ? STOP_ICON : SEND_ICON;
+    sendBtn.setAttribute('aria-label', busy ? 'Stop generating' : 'Send message');
+    sendBtn.title = busy ? 'Stop generating' : 'Send message';
+    sendBtn.classList.toggle('is-running', busy);
+    imageInput.disabled = busy;
+    userInput.disabled = busy;
+    previewContainer.classList.toggle('is-running', busy);
+    const attachButton = document.querySelector('.attach-btn');
+    if (attachButton) attachButton.setAttribute('aria-disabled', String(busy));
+  }
   function clearImagePreview() {
     uploadedImage = null;
     imageInput.value = '';
@@ -184,11 +200,17 @@
   function showTyping() { typingIndicator.style.display = 'block'; }
   function hideTyping() { typingIndicator.style.display = 'none'; }
   async function sendMessage() {
+    if (isSending) {
+      if (activeRequest) activeRequest.abort();
+      return;
+    }
     const messageText = userInput.value.trim();
     if (!messageText && !uploadedImage) return;
     appendMessage(messageText || 'Uploaded image', 'user');
     userInput.value = '';
+    setComposerBusy(true);
     showTyping();
+    activeRequest = new AbortController();
     try {
       let response;
       if (uploadedImage) {
@@ -196,12 +218,13 @@
         formData.append('prompt', messageText);
         formData.append('language', languageSelect.value);
         formData.append('image', uploadedImage);
-        response = await fetch(`${BACKEND_URL}/chat/image`, { method: 'POST', body: formData });
+        response = await fetch(`${BACKEND_URL}/chat/image`, { method: 'POST', body: formData, signal: activeRequest.signal });
       } else {
         response = await fetch(`${BACKEND_URL}/chat/text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: messageText, language: languageSelect.value })
+          body: JSON.stringify({ prompt: messageText, language: languageSelect.value }),
+          signal: activeRequest.signal
         });
       }
       const data = await response.json();
@@ -211,7 +234,14 @@
       clearImagePreview();
     } catch (err) {
       hideTyping();
-      appendMessage('⚠️ Connection error. Check your internet.', 'bot');
+      if (err.name === 'AbortError') {
+        appendMessage('Generation stopped.', 'bot');
+      } else {
+        appendMessage('⚠️ Connection error. Check your internet.', 'bot');
+      }
+    } finally {
+      activeRequest = null;
+      setComposerBusy(false);
     }
   }
   imageInput.addEventListener('change', () => {
@@ -230,6 +260,7 @@
       sendMessage();
     }
   });
+  setComposerBusy(false);
 </script>
 <script src="../site.js"></script>
 </body>
