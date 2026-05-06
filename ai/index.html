@@ -189,6 +189,9 @@
     bubble.className = 'bubble';
     if (sender === 'bot') {
       bubble.classList.add('rich-bubble');
+      if (String(text || '').trim().startsWith('⚠️')) {
+        bubble.classList.add('error-bubble');
+      }
       bubble.innerHTML = renderBotReply(text);
     } else {
       bubble.textContent = text;
@@ -199,6 +202,23 @@
   }
   function showTyping() { typingIndicator.style.display = 'block'; }
   function hideTyping() { typingIndicator.style.display = 'none'; }
+  async function readBackendResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    let payload = null;
+
+    if (contentType.includes('application/json')) {
+      payload = await response.json();
+    } else {
+      const text = await response.text();
+      payload = { detail: text };
+    }
+
+    if (!response.ok) {
+      throw new Error(payload.detail || payload.error || payload.message || `Request failed (${response.status})`);
+    }
+
+    return payload;
+  }
   async function sendMessage() {
     if (isSending) {
       if (activeRequest) activeRequest.abort();
@@ -227,17 +247,18 @@
           signal: activeRequest.signal
         });
       }
-      const data = await response.json();
+      const data = await readBackendResponse(response);
       hideTyping();
-      if (data.response) appendMessage(data.response, 'bot');
-      else appendMessage('⚠️ No response received. Try again.', 'bot');
+      const reply = data.response || data.response_text || data.message;
+      if (reply) appendMessage(reply, 'bot');
+      else throw new Error('No response received from the server.');
       clearImagePreview();
     } catch (err) {
       hideTyping();
       if (err.name === 'AbortError') {
         appendMessage('Generation stopped.', 'bot');
       } else {
-        appendMessage('⚠️ Connection error. Check your internet.', 'bot');
+        appendMessage(`⚠️ ${err.message || 'Connection error. Check your internet.'}`, 'bot');
       }
     } finally {
       activeRequest = null;

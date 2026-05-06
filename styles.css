@@ -39,6 +39,11 @@
     text-decoration: none;
     color: inherit;
   }
+
+  :focus-visible {
+    outline: 3px solid rgba(46, 204, 113, 0.45);
+    outline-offset: 2px;
+  }
   
   ul {
     list-style: none;
@@ -451,6 +456,16 @@
     background: var(--bot-msg-bg);
     border-bottom-left-radius: 4px;
     color: #222;
+  }
+
+  .bot-msg .bubble.error-bubble {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #9f1239;
+  }
+
+  .bot-msg .bubble.error-bubble strong {
+    color: #9f1239;
   }
   
   .bot-msg .bubble p {

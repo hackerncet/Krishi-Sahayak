@@ -1,11 +1,14 @@
 import os
 import base64
+import logging
+from typing import Optional
 import httpx
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI()
+logger = logging.getLogger("krishi_sahayak")
 
 # Allow all origins for testing (lock down later)
 origins = ["*"]
@@ -33,6 +36,32 @@ LANGUAGE_MAP = {
     "doi": "Dogri", "mni": "Manipuri", "sat": "Santali", "brx": "Bodo",
     "mai": "Maithili", "gom": "Konkani"
 }
+
+
+def build_data_uri(image_bytes: bytes, content_type: Optional[str] = None) -> str:
+    mime_type = (content_type or "image/jpeg").split(";")[0].strip() or "image/jpeg"
+    if not mime_type.startswith("image/"):
+        mime_type = "image/jpeg"
+    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    return f"data:{mime_type};base64,{img_base64}"
+
+
+def extract_agent_content(data: dict) -> str:
+    choices = data.get("choices") or []
+    if not choices:
+        raise ValueError("Agent response did not include choices")
+    message = choices[0].get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text" and part.get("text"):
+                text_parts.append(part["text"])
+        if text_parts:
+            return "".join(text_parts)
+    raise ValueError("Agent response did not contain text content")
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -68,7 +97,7 @@ async def call_agent(user_prompt: str, language: str = "hi") -> str:
         if resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        return extract_agent_content(data)
 
 # ── Bhashini Speech-to-Text ──
 async def bhashini_stt(audio_base64: str, language: str) -> str:
@@ -123,14 +152,12 @@ async def bhashini_tts(text: str, language: str) -> str:
         return f"data:audio/wav;base64,{audio_b64}"
 
 # --- New Image Analysis Function (Option A: DigitalOcean Native) ---
-async def analyze_image_digitalocean(image_bytes: bytes, user_question: str, language: str) -> str:
+async def analyze_image_digitalocean(image_bytes: bytes, user_question: str, language: str, content_type: Optional[str] = None) -> str:
     """Analyzes an image using DigitalOcean's native vision model (Ministral 3 14B)."""
     if not DO_MODEL_KEY:
         raise HTTPException(status_code=500, detail="DigitalOcean Model Access Key not configured")
     
-    # Encode image to base64
-    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    data_uri = f"data:image/jpeg;base64,{img_base64}"
+    data_uri = build_data_uri(image_bytes, content_type)
     
     vision_prompt = f"You are Krishi Sahayak, an expert agricultural advisor. Analyze this crop photo carefully and answer the farmer's question. Always respond in {LANGUAGE_MAP.get(language, 'English')}. Focus on diagnosing diseases, pests, nutrient deficiencies, or growth issues visible in the image. Give organic solutions first. The farmer says: '{user_question}'."
     
@@ -160,16 +187,15 @@ async def analyze_image_digitalocean(image_bytes: bytes, user_question: str, lan
         if resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Vision API error: {resp.text}")
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        return extract_agent_content(data)
 
 # --- Alternative: Option B (OpenAI GPT‑4o‑mini) ---
-async def analyze_image_openai(image_bytes: bytes, user_question: str, language: str) -> str:
+async def analyze_image_openai(image_bytes: bytes, user_question: str, language: str, content_type: Optional[str] = None) -> str:
     """Analyzes an image using OpenAI's GPT‑4o‑mini (requires your own OpenAI API key)."""
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
     
-    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    data_uri = f"data:image/jpeg;base64,{img_base64}"
+    data_uri = build_data_uri(image_bytes, content_type)
     
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -201,7 +227,7 @@ async def analyze_image_openai(image_bytes: bytes, user_question: str, language:
         if resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"OpenAI API error: {resp.text}")
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        return extract_agent_content(data)
 
 # ── Endpoints ──
 # --- New /chat/image Endpoint ---
@@ -212,9 +238,10 @@ async def chat_image(
     image: UploadFile = File(...)
 ):
     """Receives an image and a text prompt, then returns a vision-based diagnosis."""
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+
     image_bytes = await image.read()
-    img_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    data_uri = f"data:image/jpeg;base64,{img_base64}"
     lang_name = LANGUAGE_MAP.get(language, "Hindi")
     
     instruction = (
@@ -230,38 +257,53 @@ async def chat_image(
             "role": "user",
             "content": [
                 {"type": "text", "text": full_text},
-                {"type": "image_url", "image_url": {"url": data_uri}}
+                {"type": "image_url", "image_url": {"url": build_data_uri(image_bytes, image.content_type)}}
             ]
         }
     ]
-    
-    if not AGENT_ENDPOINT or not AGENT_API_KEY:
-        raise HTTPException(status_code=500, detail="Agent not configured")
 
+    analysis_mode = "vision"
+    
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                AGENT_ENDPOINT,
-                headers={
-                    "Authorization": f"Bearer {AGENT_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={"messages": messages},
-                timeout=60.0
-            )
-            if resp.status_code != 200:
-                raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
-            data = resp.json()
-            vision_response = data["choices"][0]["message"]["content"]
-    except Exception as e:
-        # Fallback: send text-only to your main agent if vision fails
+        if DO_MODEL_KEY:
+            vision_response = await analyze_image_digitalocean(image_bytes, prompt, language, image.content_type)
+        elif OPENAI_API_KEY:
+            vision_response = await analyze_image_openai(image_bytes, prompt, language, image.content_type)
+        elif AGENT_ENDPOINT and AGENT_API_KEY:
+            analysis_mode = "agent"
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    AGENT_ENDPOINT,
+                    headers={
+                        "Authorization": f"Bearer {AGENT_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={"messages": messages},
+                    timeout=60.0
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=502, detail=f"Agent error: {resp.text}")
+                vision_response = extract_agent_content(resp.json())
+        else:
+            raise HTTPException(status_code=500, detail="No vision backend is configured")
+    except HTTPException as exc:
+        logger.exception("Vision request failed")
+        if exc.status_code >= 500 and AGENT_ENDPOINT and AGENT_API_KEY:
+            analysis_mode = "text"
+            fallback_prompt = f"[Farmer uploaded a crop image but vision analysis failed. Their question: {prompt}]"
+            vision_response = await call_agent(fallback_prompt, language)
+        else:
+            raise
+    except Exception:
+        logger.exception("Unexpected image analysis failure")
+        analysis_mode = "text"
         fallback_prompt = f"[Farmer uploaded a crop image but vision analysis failed. Their question: {prompt}]"
         vision_response = await call_agent(fallback_prompt, language)
     
     return {
         "response": vision_response,
         "language": language,
-        "mode": "vision"
+        "mode": analysis_mode
     }
 
 @app.post("/chat/voice")
