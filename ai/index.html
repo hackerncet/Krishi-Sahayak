@@ -72,13 +72,83 @@
   const emptyState = document.getElementById('empty-state');
   let uploadedImage = null;
   function hideEmptyState() { if (emptyState) emptyState.style.display = 'none'; }
+  function escapeHTML(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function formatInlineMarkdown(value) {
+    return escapeHTML(value).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  }
+  function renderBotReply(text) {
+    const normalized = String(text || '').replace(/\r\n/g, '\n').trim();
+    const isFertilizerReply = /\b(fertilizer|fertiliser|urea|dap|npk|mop|manure|compost)\b/i.test(normalized);
+    const fertilizerLabels = new Set(['fertilizer', 'fertiliser', 'usage', 'use', 'dose', 'dosage', 'quantity', 'method', 'timing', 'precautions', 'application', 'apply']);
+    const lines = normalized.split('\n');
+    const blocks = [];
+    let listItems = [];
+
+    const flushList = () => {
+      if (!listItems.length) return;
+      blocks.push(`<ul class="response-list">${listItems.map((item) => `<li>${item}</li>`).join('')}</ul>`);
+      listItems = [];
+    };
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) {
+        flushList();
+        continue;
+      }
+
+      const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
+      if (bulletMatch) {
+        listItems.push(formatInlineMarkdown(bulletMatch[1]));
+        continue;
+      }
+
+      flushList();
+
+      const labelMatch = line.match(/^([A-Za-z][A-Za-z\s()/+-]{0,30}):\s*(.+)$/);
+      if (isFertilizerReply && labelMatch && fertilizerLabels.has(labelMatch[1].trim().toLowerCase())) {
+        blocks.push(
+          `<div class="fertilizer-row"><span class="fertilizer-label">${escapeHTML(labelMatch[1].trim())}</span><span class="fertilizer-value">${formatInlineMarkdown(labelMatch[2])}</span></div>`
+        );
+        continue;
+      }
+
+      if (/^#{1,3}\s+/.test(line)) {
+        blocks.push(`<p class="response-heading">${formatInlineMarkdown(line.replace(/^#{1,3}\s+/, ''))}</p>`);
+        continue;
+      }
+
+      blocks.push(`<p>${formatInlineMarkdown(line)}</p>`);
+    }
+
+    flushList();
+
+    const content = blocks.join('');
+    if (isFertilizerReply) {
+      return `<div class="fertilizer-card"><div class="fertilizer-chip">Fertilizer guidance</div>${content}</div>`;
+    }
+
+    return content;
+  }
   function appendMessage(text, sender) {
     hideEmptyState();
     const message = document.createElement('div');
     message.className = `message ${sender === 'user' ? 'user-msg' : 'bot-msg'}`;
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    bubble.textContent = text;
+    if (sender === 'bot') {
+      bubble.classList.add('rich-bubble');
+      bubble.innerHTML = renderBotReply(text);
+    } else {
+      bubble.textContent = text;
+    }
     message.appendChild(bubble);
     chatContainer.appendChild(message);
     chatContainer.scrollTop = chatContainer.scrollHeight;
