@@ -61,7 +61,7 @@
   </div>
 </div>
 <script>
-  const BACKEND_URL = '';
+  const BACKEND_URL = 'https://oyster-app-jb6cq.ondigitalocean.app';
   const languageSelect = document.getElementById('language-select');
   const chatContainer = document.getElementById('chat-container');
   const userInput = document.getElementById('user-input');
@@ -98,7 +98,7 @@
         formData.append('prompt', messageText);
         formData.append('language', languageSelect.value);
         formData.append('image', uploadedImage);
-        response = await fetch(`${BACKEND_URL}/chat/vision`, { method: 'POST', body: formData });
+        response = await fetch(`${BACKEND_URL}/chat/image`, { method: 'POST', body: formData });
       } else {
         response = await fetch(`${BACKEND_URL}/chat/text`, {
           method: 'POST',
